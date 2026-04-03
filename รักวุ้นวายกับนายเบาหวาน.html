@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tsundere Chef Romance - เกมจีบหนุ่ม</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Anuphan', sans-serif;
+            background-color: #fce4ec;
+            margin: 0;
+            overflow: hidden;
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: linear-gradient(to bottom, #ffc1e3, #ffffff);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        .character-sprite {
+            position: absolute;
+            bottom: 20%;
+            height: 60%;
+            transition: all 0.5s ease;
+        }
+        .dialogue-box {
+            width: 90%;
+            max-width: 800px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 4px solid #f06292;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 30px;
+            z-index: 10;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .name-tag {
+            position: absolute;
+            top: -25px;
+            left: 20px;
+            background: #f06292;
+            color: white;
+            padding: 5px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .choice-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background: #f8bbd0;
+            border: 2px solid #f06292;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .choice-btn:hover {
+            background: #f06292;
+            color: white;
+        }
+        .fade-in { animation: fadeIn 0.5s forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Sprite Placeholders with SVGs */
+        .character-svg {
+            width: 300px;
+            height: 400px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Background Elements -->
+    <div id="scene-bg" class="absolute inset-0 bg-cover bg-center transition-all duration-700"></div>
+
+    <!-- Character Sprite Container -->
+    <div id="character-container" class="character-sprite flex justify-center">
+        <!-- SVG Sprites will be injected here -->
+    </div>
+
+    <!-- Dialogue Box -->
+    <div id="ui-container" class="dialogue-box relative">
+        <div id="name-tag" class="name-tag">ระบบ</div>
+        <div id="dialogue-text" class="text-lg text-gray-800 min-h-[60px]">
+            ยินดีต้อนรับสู่เกม...
+        </div>
+        <div id="choices-container" class="mt-4 hidden">
+            <!-- Choices will be injected here -->
+        </div>
+        <div id="next-btn" class="mt-4 text-right">
+            <button onclick="nextStep()" class="bg-pink-500 text-white px-6 py-2 rounded-full hover:bg-pink-600 transition">ถัดไป</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Game Data
+    const gameState = {
+        step: 0,
+        selectedRoute: null, // 'A' or 'Luca'
+        pointsA: 0
+    };
+
+    const script = [
+        {
+            name: "ระบบ",
+            text: "คุณคือหนุ่มน้อยผู้มีนิสัย 'ซึนเดเระ' ปากไม่ตรงกับใจ วันนี้เป็นวันที่คุณต้องตัดสินใจเรื่องหัวใจ...",
+            bg: "linear-gradient(to bottom, #a1c4fd, #c2e9fb)"
+        },
+        {
+            name: "A",
+            text: "*ปรู๊ดดดดด!* อ้าว! โทษทีนะ พอดีกินนมถั่วเหลืองเยอะไปหน่อยน่ะ แฮะๆ",
+            bg: "linear-gradient(to bottom, #fff1eb, #ace0f9)",
+            sprite: "A_NORMAL"
+        },
+        {
+            name: "คุณ (ซึนเดเระ)",
+            text: "นะ... นาย! ทำตัวไร้สาระอีกแล้วนะ 'A' ! ตดออกมาต่อหน้าคนอื่นแบบนี้ได้ไง ทุเรศที่สุด!",
+            sprite: "A_NORMAL"
+        },
+        {
+            name: "A",
+            text: "อย่าบ่นน่ายอดขยัน ของดีทั้งนั้นนะเนี่ย! นี่ๆ ผมทำ 'เป็ดปักกิ่งสูตรออสซี่' มาให้ลองชิมด้วยนะ ฝันอยากเป็นเชฟมันก็ต้องหัดทำบ่อยๆ แบบนี้แหละ",
+            sprite: "A_COOK"
+        },
+        {
+            name: "A",
+            text: "กินมั้ย? ผมป้อนนะ อ้ามมมม~ (เขากินโชว์อย่างมูมมามจนเลอะปากไปหมด)",
+            sprite: "A_EAT"
+        },
+        {
+            name: "ระบบ",
+            text: "คุณจะทำอย่างไรดี? ระหว่างที่ A กำลังตื้อคุณอยู่ คุณเห็น 'ลูก้า' หนุ่มฮอตอีกคนเดินผ่านมาพอดี",
+            choices: [
+                { text: "ชิมเป็ดของ A (แล้วด่าว่ารสชาติงั้นๆ แหละ!)", next: 7, route: 'A' },
+                { text: "เดินหนีไปหา ลูก้า เหล่ามา ดีกว่า", next: 15, route: 'LUCA' }
+            ]
+        },
+        // --- ROUTE A ---
+        {
+            name: "คุณ (ซึนเดเระ)",
+            text: "ก็ได้! เห็นว่านายพยายามหรอกนะ... *งับ* ...เหอะ ก็งั้นๆ แหละ (จริงๆ คืออร่อยมาก!)",
+            sprite: "A_HAPPY"
+        },
+        {
+            name: "A",
+            text: "เย้! คุณชิมแล้ว! ถึงจะด่าผมแต่คุณก็กินหมดจานเลยนะเนี่ย น่ารักจังน้า~",
+            sprite: "A_LOVE"
+        },
+        {
+            name: "???",
+            text: "แหม... หวานกันจังเลยนะจ๊ะ",
+            sprite: "VILLAIN"
+        },
+        {
+            name: "นางร้าย",
+            text: "A จ๊ะ ทำไมชอบกินนมถั่วเหลืองจัง? ลองมากิน 'นมโรงเรียน' กับฉันมั้ย? อ๊ะ ลืมไป ฉันไม่ชอบนมโรงเรียนหรอก มันจืดชืดเหมือนนายนั่นแหละ",
+            sprite: "VILLAIN"
+        },
+        {
+            name: "คุณ (ซึนเดเระ)",
+            text: "ยัยนี่ใครเนี่ย! มาทางไหนไปทางนั้นเลยไป! อย่ามายุ่งกับเชฟซุ่มซ่ามของฉันนะ!",
+            sprite: "A_BLUSH"
+        },
+        {
+            name: "A",
+            text: "โอ้ววว คุณปกป้องผมเหรอเนี่ย? ผมรักคุณที่สุดเลย! มาคบกับผมนะ ผมจะทำของอร่อยให้กินทุกวันจนพุงกางเลย!",
+            sprite: "A_LOVE"
+        },
+        {
+            name: "ระบบ",
+            text: "ฉากจบที่ 1: คุณเลือก A! แม้เขาจะอ้วน มูมมาม และชอบตด แต่เขาก็ดูแลคุณอย่างดีด้วยหัวใจเชฟ และคุณทั้งคู่ก็ครองรักกันอย่างมีความสุข (แบบซึนๆ)",
+            isEnd: true
+        },
+        // --- ROUTE LUCA (A ENDS UP WITH VILLAIN) ---
+        {
+            name: "คุณ (ซึนเดเระ)",
+            text: "รำคาญนายว่ะ A! ทำตัวไร้สาระอยู่ได้ ฉันไปหาลูก้าดีกว่า บาย!",
+            sprite: "A_SAD"
+        },
+        {
+            name: "A",
+            text: "เอ๋... ผะ... ผมทำอะไรผิดไปเหรอ... (เขามองดูจานอาหารที่ตั้งใจทำด้วยแววตาเศร้าสร้อย)",
+            sprite: "A_SAD"
+        },
+        {
+            name: "นางร้าย",
+            text: "ว้าว... โดนทิ้งเหรอจ๊ะคนหล่อ (ในแบบอ้วนๆ)? มาหาฉันมา ฉันชอบคนใจดีแบบนี้นะ ลับหลังนายนั่น ฉันจะดูแลนายเอง~",
+            sprite: "VILLAIN"
+        },
+        {
+            name: "ระบบ",
+            text: "หลายเดือนผ่านไป...",
+            bg: "#333"
+        },
+        {
+            name: "ระบบ",
+            text: "คุณคบกับลูก้า แต่ความสัมพันธ์ไม่ราบรื่นนัก เพราะลูก้าเจ้าชู้พอๆ กับนางร้าย...",
+            sprite: "LUCA"
+        },
+        {
+            name: "ระบบ",
+            text: "ส่วน A... เพราะเขาโชคไม่ดีเรื่องความรักและต้องการใครสักคน เขาจึงตกหลุมพรางของนางร้ายที่เข้ามาลับหลังคุณ",
+            sprite: "A_VILLAIN_END"
+        },
+        {
+            name: "นางร้าย",
+            text: "A นี่ซื่อบื้อจริงๆ แค่แกล้งทำเป็นชมว่าอาหารอร่อยหน่อยเดียว ก็ยอมเปย์ฉันทุกอย่างแล้ว คุยซ้อนกี่คนเขาก็ไม่รู้หรอก ฮิฮิ",
+            sprite: "VILLAIN"
+        },
+        {
+            name: "ระบบ",
+            text: "ฉากจบที่ 2: คุณเสีย A ให้กับนางร้ายผู้สำส่อน A ต้องจมอยู่กับความสัมพันธ์ที่เป็นพิษ ส่วนคุณก็ได้แต่เสียดายที่ทิ้งเชฟผู้ซื่อสัตย์ไป...",
+            isEnd: true
+        }
+    ];
+
+    const sprites = {
+        A_NORMAL: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="100" cy="80" r="50" fill="#ffccbc"/><rect x="60" y="130" width="80" height="70" rx="30" fill="#4fc3f2"/><circle cx="80" cy="70" r="5" fill="black"/><circle cx="120" cy="70" r="5" fill="black"/><path d="M 80 95 Q 100 110 120 95" stroke="black" fill="transparent" stroke-width="2"/><text x="50" y="150" font-size="10">Half CN-AU</text></svg>`,
+        A_COOK: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="100" cy="80" r="50" fill="#ffccbc"/><rect x="60" y="130" width="80" height="70" rx="30" fill="#ffffff" stroke="#ccc"/><path d="M 80 30 L 120 30 L 120 10 L 80 10 Z" fill="white" stroke="black"/><text x="85" y="160" font-size="20">🍳</text></svg>`,
+        A_EAT: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="100" cy="80" r="50" fill="#ffccbc"/><rect x="60" y="130" width="80" height="70" rx="30" fill="#4fc3f2"/><circle cx="100" cy="90" r="15" fill="#5d4037"/><text x="110" y="90" font-size="10">🍗</text></svg>`,
+        A_HAPPY: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="100" cy="80" r="50" fill="#ffccbc"/><rect x="60" y="130" width="80" height="70" rx="30" fill="#4fc3f2"/><path d="M 80 75 Q 85 65 90 75" stroke="black" fill="transparent"/><path d="M 110 75 Q 115 65 120 75" stroke="black" fill="transparent"/><path d="M 80 100 Q 100 120 120 100" stroke="pink" fill="pink"/></svg>`,
+        A_SAD: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="100" cy="80" r="55" fill="#ffccbc"/><rect x="60" y="130" width="80" height="70" rx="30" fill="#90a4ae"/><path d="M 80 105 Q 100 90 120 105" stroke="black" fill="transparent"/></svg>`,
+        A_LOVE: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="100" cy="80" r="50" fill="#ffccbc"/><text x="70" y="70" font-size="20">❤️</text><text x="110" y="70" font-size="20">❤️</text><path d="M 80 100 Q 100 120 120 100" stroke="red" fill="transparent" stroke-width="3"/></svg>`,
+        VILLAIN: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="100" cy="80" r="45" fill="#f8bbd0"/><path d="M 50 80 Q 50 20 100 20 Q 150 20 150 80" fill="#6a1b9a"/><rect x="70" y="125" width="60" height="75" fill="#ad1457"/><circle cx="85" cy="75" r="3" fill="black"/><circle cx="115" cy="75" r="3" fill="black"/><path d="M 85 95 Q 100 105 115 95" stroke="black" fill="transparent"/></svg>`,
+        LUCA: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="100" cy="80" r="45" fill="#ffe0b2"/><path d="M 60 40 L 140 40 L 120 90 L 80 90 Z" fill="#3e2723"/><rect x="75" y="125" width="50" height="75" fill="#263238"/><text x="80" y="80" font-size="10">😎</text></svg>`,
+        A_VILLAIN_END: `<svg class="character-svg" viewBox="0 0 200 200"><circle cx="80" cy="80" r="40" fill="#ffccbc"/><circle cx="130" cy="85" r="35" fill="#f8bbd0"/><text x="90" y="60" font-size="20">💔</text></svg>`
+    };
+
+    function renderScene() {
+        const data = script[gameState.step];
+        
+        // Update Name and Text
+        document.getElementById('name-tag').innerText = data.name;
+        document.getElementById('dialogue-text').innerText = data.text;
+        
+        // Update Background
+        if (data.bg) {
+            document.getElementById('scene-bg').style.background = data.bg;
+        }
+
+        // Update Sprite
+        const spriteCont = document.getElementById('character-container');
+        if (data.sprite && sprites[data.sprite]) {
+            spriteCont.innerHTML = sprites[data.sprite];
+            spriteCont.classList.add('fade-in');
+            setTimeout(() => spriteCont.classList.remove('fade-in'), 500);
+        } else if (!data.sprite) {
+            spriteCont.innerHTML = "";
+        }
+
+        // Handle Choices
+        const choiceCont = document.getElementById('choices-container');
+        const nextBtn = document.getElementById('next-btn');
+        
+        if (data.choices) {
+            choiceCont.innerHTML = "";
+            choiceCont.classList.remove('hidden');
+            nextBtn.classList.add('hidden');
+            
+            data.choices.forEach(choice => {
+                const btn = document.createElement('div');
+                btn.className = "choice-btn";
+                btn.innerText = choice.text;
+                btn.onclick = () => {
+                    gameState.selectedRoute = choice.route;
+                    gameState.step = choice.next;
+                    choiceCont.classList.add('hidden');
+                    nextBtn.classList.remove('hidden');
+                    renderScene();
+                };
+                choiceCont.appendChild(btn);
+            });
+        } else {
+            choiceCont.classList.add('hidden');
+            nextBtn.classList.remove('hidden');
+        }
+
+        // Handle Endings
+        if (data.isEnd) {
+            nextBtn.innerHTML = `<button onclick="location.reload()" class="bg-blue-500 text-white px-6 py-2 rounded-full hover:bg-blue-600">เล่นใหม่อีกครั้ง</button>`;
+        }
+    }
+
+    function nextStep() {
+        if (gameState.step < script.length - 1) {
+            // Logic skip certain steps based on route
+            if (gameState.step === 5) return; // Wait for choice
+            
+            gameState.step++;
+            renderScene();
+        }
+    }
+
+    // Initialize
+    window.onload = renderScene;
+
+</script>
+
+</body>
+</html>
